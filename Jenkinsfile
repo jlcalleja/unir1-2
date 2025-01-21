@@ -10,7 +10,7 @@ pipeline {
     stages {
         stage('GetCode') {
             steps {
-                git 'https://github.com/jlcalleja/unir1-2/tree/master'
+                git 'https://github.com/jlcalleja/unir1-2/'
                 bat 'dir'
                 echo WORKSPACE
             }
