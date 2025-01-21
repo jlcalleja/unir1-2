@@ -5,6 +5,11 @@ pipeline {
         pathscript = "C:\\Users\\ADM-1\\AppData\\Local\\Programs\\Python\\Python313\\Scripts"
         pathwiremock = "C:\\Users\\ADM-1\\Downloads\\wiremock-standalone-3.10.0.jar"
         pathjmeter ="C:\\Users\\ADM-1\\Desktop\\apache-jmeter-5.6.3\\bin\\jmeter"
+        informacion = '''
+                      echo USUARIO ACTUAL: %USERNAME%
+                      echo HOST: %COMPUTERNAME%
+                      echo ESPACIO DE TRABAJO: %WORKSPACE%
+        '''
     }
 
     stages {
@@ -12,7 +17,7 @@ pipeline {
             steps {
                 git 'https://github.com/jlcalleja/unir1-2/'
                 bat 'dir'
-                echo WORKSPACE
+                bat "${informacion}"
             }
         }
 
@@ -24,6 +29,7 @@ pipeline {
                         %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
                    '''
                     junit 'result*.xml'
+                    bat "${informacion}"
                 }
             }
         }
@@ -38,6 +44,8 @@ pipeline {
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                     cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, lineCoverageTargets: '100, 85, 95'
                 }
+
+                bat "${informacion}"
             }
         }
 
@@ -51,6 +59,8 @@ pipeline {
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                     recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')], qualityGates: [[threshold: 8, type: 'TOTAL', unstable: true], [threshold: 10, type: 'TOTAL', unstable: false]]
                 }
+
+                bat "${informacion}"
             }
         }
         
@@ -63,6 +73,8 @@ pipeline {
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                     recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')], qualityGates: [[threshold: 2, type: 'TOTAL', unstable: true], [threshold: 4, type: 'TOTAL', unstable: false]] 
                 }
+
+                bat "${informacion}"
             }
         }
         
@@ -75,6 +87,8 @@ pipeline {
                 '''
                 perfReport sourceDataFiles: 'flask.jtl'
             }
+
+            bat "${informacion}"
         }
     }
     
