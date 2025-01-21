@@ -16,14 +16,32 @@ pipeline {
             }
         }
 
-        stage('Unit') {
-            steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                    bat '''
-                        set PYTHONPATH=%WORKSPACE%
-                        %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
-                   '''
-                    junit 'result*.xml'
+        stage('Tests') {
+            parallel {
+                stage('Unit') {
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                            bat '''
+                                set PYTHONPATH=%WORKSPACE%
+                                %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
+                           '''
+                            junit 'result*.xml'
+                        }
+                    }
+                }
+                
+                stage('Service') {
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                            bat '''
+                                set FLASK_APP=app\\api.py
+                                start %pathscript%\\flask run
+                                start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
+                                set PYTHONPATH=%WORKSPACE%
+                                %pathscript%\\pytest --junitxml=result-rest.xml test\\rest
+                           '''
+                        }
+                    }
                 }
             }
         }
@@ -69,8 +87,6 @@ pipeline {
         stage('Performance') {
             steps {
                 bat '''
-                    set FLASK_APP=app\\api.py
-                    start %pathscript%\\flask run
                     %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
                 '''
                 perfReport sourceDataFiles: 'flask.jtl'
