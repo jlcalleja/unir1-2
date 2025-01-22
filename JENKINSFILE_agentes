@@ -14,7 +14,7 @@ pipeline {
 
     stages {
         stage('GetCode') {
-            agent { label 'agent1' }
+            agent { label 'agente1' }
             steps {
                 git 'https://github.com/jlcalleja/unir1-2/'
                 bat 'dir'
@@ -26,7 +26,7 @@ pipeline {
         stage('Independientes') {
             parallel {
                 stage('Unit') {
-                    agent { label 'agent1' }
+                    agent { label 'agente1' }
                     steps {
                         unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
@@ -41,7 +41,7 @@ pipeline {
                 }
 
                 stage('Service') {
-                    agent { label 'agent2' }
+                    agent { label 'agente2' }
                     steps {
                         unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
@@ -58,7 +58,7 @@ pipeline {
                 }
 
                 stage('Static') {
-                    agent { label 'agent3' }
+                    agent { label 'agente3' }
                     steps {
                         unstash 'codigo'
                         bat '''
@@ -72,7 +72,7 @@ pipeline {
                 }
 
                 stage('Security-Test') {
-                    agent { label 'agent3' }
+                    agent { label 'agente3' }
                     steps {
                         unstash 'codigo'
                         bat '''
@@ -90,7 +90,7 @@ pipeline {
         stage('Dependientes') {
             parallel {
                 stage('Coverage') {
-                    agent { label 'agent1' }
+                    agent { label 'agente1' }
                     steps {
                         unstash 'codigo'
                         bat '''
@@ -105,7 +105,7 @@ pipeline {
                 }
 
                 stage('Performance') {
-                    agent { label 'agent2' }
+                    agent { label 'agente2' }
                     steps {
                         unstash 'codigo'
                         bat '''
