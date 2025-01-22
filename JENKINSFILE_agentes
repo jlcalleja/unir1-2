@@ -28,7 +28,6 @@ pipeline {
                 stage('Unit') {
                     agent { label 'agente1' }
                     steps {
-                        unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             bat '''
                                 set PYTHONPATH=%WORKSPACE%
@@ -74,7 +73,6 @@ pipeline {
                 stage('Security-Test') {
                     agent { label 'agente3' }
                     steps {
-                        unstash 'codigo'
                         bat '''
                             %pathscript%\\bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"
                         '''
@@ -92,7 +90,6 @@ pipeline {
                 stage('Coverage') {
                     agent { label 'agente1' }
                     steps {
-                        unstash 'codigo'
                         bat '''
                             set PYTHONPATH=%WORKSPACE%
                             %pathscript%\\coverage xml
@@ -107,7 +104,6 @@ pipeline {
                 stage('Performance') {
                     agent { label 'agente2' }
                     steps {
-                        unstash 'codigo'
                         bat '''
                             %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
                         '''
