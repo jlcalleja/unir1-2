@@ -1,10 +1,10 @@
 pipeline {
-    agent any
-    
+    agent none
+
     environment {
         pathscript = "C:\\Users\\ADM-1\\AppData\\Local\\Programs\\Python\\Python313\\Scripts"
         pathwiremock = "C:\\Users\\ADM-1\\Downloads\\wiremock-standalone-3.10.0.jar"
-        pathjmeter ="C:\\Users\\ADM-1\\Desktop\\apache-jmeter-5.6.3\\bin\\jmeter"
+        pathjmeter = "C:\\Users\\ADM-1\\Desktop\\apache-jmeter-5.6.3\\bin\\jmeter"
         informacion = '''
                       echo USUARIO ACTUAL: %USERNAME%
                       echo HOST: %COMPUTERNAME%
@@ -14,32 +14,37 @@ pipeline {
 
     stages {
         stage('GetCode') {
+            agent { label 'agent1' }
             steps {
                 git 'https://github.com/jlcalleja/unir1-2/'
                 bat 'dir'
                 bat "${informacion}"
+                stash includes: '**', name: 'codigo' 
             }
         }
 
-        stage('Tests') {
+        stage('Independientes') {
             parallel {
                 stage('Unit') {
+                    agent { label 'agent1' }
                     steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                        unstash 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             bat '''
                                 set PYTHONPATH=%WORKSPACE%
                                 %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
                            '''
                             junit 'result*.xml'
-
                             bat "${informacion}"
                         }
                     }
                 }
-                
+
                 stage('Service') {
+                    agent { label 'agent2' }
                     steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                        unstash 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             bat '''
                                 set FLASK_APP=app\\api.py
                                 start %pathscript%\\flask run
@@ -49,72 +54,82 @@ pipeline {
                            '''
                         }
                         bat "${informacion}"
-                        
+                    }
+                }
+
+                stage('Static') {
+                    agent { label 'agent3' }
+                    steps {
+                        unstash 'codigo'
+                        bat '''
+                            %pathscript%\\flake8 --exit-zero --format=pylint app >flake8.out
+                        '''
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')], qualityGates: [[threshold: 8, type: 'TOTAL', unstable: true], [threshold: 10, type: 'TOTAL', unstable: false]]
+                        }
+                        bat "${informacion}"
+                    }
+                }
+
+                stage('Security-Test') {
+                    agent { label 'agent3' }
+                    steps {
+                        unstash 'codigo'
+                        bat '''
+                            %pathscript%\\bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"
+                        '''
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')], qualityGates: [[threshold: 2, type: 'TOTAL', unstable: true], [threshold: 4, type: 'TOTAL', unstable: false]]
+                        }
+                        bat "${informacion}"
                     }
                 }
             }
         }
-        
-        stage('Coverage') {
-            steps {
-                bat '''
-                    set PYTHONPATH=%WORKSPACE%
-                    %pathscript%\\coverage xml
-                '''
-                
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                    cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, lineCoverageTargets: '100, 85, 95'
+
+        stage('Dependientes') {
+            parallel {
+                stage('Coverage') {
+                    agent { label 'agent1' }
+                    steps {
+                        unstash 'codigo'
+                        bat '''
+                            set PYTHONPATH=%WORKSPACE%
+                            %pathscript%\\coverage xml
+                        '''
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, lineCoverageTargets: '100, 85, 95'
+                        }
+                        bat "${informacion}"
+                    }
                 }
 
-                bat "${informacion}"
-            }
-        }
-
-        
-        stage('Static') {
-            steps {
-                bat '''
-                    %pathscript%\\flake8 --exit-zero --format=pylint app >flake8.out
-                '''
-                
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                    recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')], qualityGates: [[threshold: 8, type: 'TOTAL', unstable: true], [threshold: 10, type: 'TOTAL', unstable: false]]
+                stage('Performance') {
+                    agent { label 'agent2' }
+                    steps {
+                        unstash 'codigo'
+                        bat '''
+                            %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
+                        '''
+                        perfReport sourceDataFiles: 'flask.jtl'
+                        bat "${informacion}"
+                    }
                 }
-
-                bat "${informacion}"
             }
         }
-        
-        stage('Security-Test') {
-            steps {
-                bat'''
-                    %pathscript%\\bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"
-                '''
-                
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                    recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')], qualityGates: [[threshold: 2, type: 'TOTAL', unstable: true], [threshold: 4, type: 'TOTAL', unstable: false]] 
-                }
-
-                bat "${informacion}"
-            }
-        }
-
-        stage('Performance') {
-            steps {
-                bat '''
-                    %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
-                '''
-                perfReport sourceDataFiles: 'flask.jtl'
-
-                bat "${informacion}"
-            }
-        } 
     }
-    
+
     post {
         always {
-            cleanWs(disableDeferredWipeout: true)  // Desactiva el "wipeout diferido"
+            node('agente1') {
+                cleanWs() 
+            }
+            node('agente2') {
+                cleanWs() 
+            }
+            node('agente3') {
+                cleanWs() 
+            }
         }
     }
-
 }
