@@ -45,7 +45,7 @@ pipeline {
                         unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             bat '''
-                                set FLASK_APP=app\\api.py
+                                set /B FLASK_APP=app\\api.py
                                 start %pathscript%\\flask run
                                 start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
                                 set PYTHONPATH=%WORKSPACE%
