@@ -70,6 +70,23 @@ pipeline {
 
         stage('Dependientes') {
             parallel {
+                stage('Service') {
+                    agent { label 'agente2' }
+                    steps {
+                        unstash 'codigo'
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                            bat '''
+                                set FLASK_APP=app\\api.py
+                                start %pathscript%\\flask run
+                                start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
+                                set PYTHONPATH=%WORKSPACE%
+                                %pathscript%\\pytest --junitxml=result-rest.xml test\\rest
+                           '''
+                        }
+                        bat "${informacion}"
+                    }
+                }
+
                 stage('Coverage') {
                     agent { label 'agente1' }
                     steps {
@@ -88,8 +105,6 @@ pipeline {
                     agent { label 'agente2' }
                     steps {
                         bat '''
-                            set FLASK_APP=app\\api.py
-                            start %pathscript%\\flask run
                             %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
                         '''
                         perfReport sourceDataFiles: 'flask.jtl'
