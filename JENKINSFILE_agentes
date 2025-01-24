@@ -81,7 +81,7 @@ pipeline {
                                 start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
                             '''
 
-                            sleep(time: 20, unit: 'SECONDS')
+                            sleep(time: 30, unit: 'SECONDS')
                             
                             bat '''
                                 set PYTHONPATH=%WORKSPACE%
