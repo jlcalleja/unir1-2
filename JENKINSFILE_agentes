@@ -100,7 +100,7 @@ pipeline {
                             %pathscript%\\coverage xml
                         '''
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, lineCoverageTargets: '100, 85, 95'
+                            cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, onlyStable: false, lineCoverageTargets: '100, 85, 95'
                         }
                         bat "${informacion}"
                     }
