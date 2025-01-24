@@ -79,9 +79,14 @@ pipeline {
                                 set FLASK_APP=app\\api.py
                                 start %pathscript%\\flask run
                                 start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
+                            '''
+
+                            sleep(time: 20, unit: 'SECONDS')
+                            
+                            bat '''
                                 set PYTHONPATH=%WORKSPACE%
                                 %pathscript%\\pytest --junitxml=result-rest.xml test\\rest
-                           '''
+                            '''
                         }
                         bat "${informacion}"
                     }
