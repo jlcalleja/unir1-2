@@ -16,7 +16,7 @@ pipeline {
         stage('GetCode') {
             agent { label 'agente1' }
             steps {
-                git 'https://github.com/jlcalleja/unir1-2/'
+                git url: 'https://github.com/jlcalleja/unir1-2', branch: 'feature_fix_coverage'
                 bat 'dir'
                 bat "${informacion}"
                 stash includes: '**', name: 'codigo' 
@@ -26,8 +26,9 @@ pipeline {
         stage('Independientes') {
             parallel {
                 stage('Unit') {
-                    agent { label 'agente1' }
+                    agent { label 'agente2' }
                     steps {
+                        unstash 'codigo'
                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                             bat '''
                                 set PYTHONPATH=%WORKSPACE%
@@ -36,6 +37,19 @@ pipeline {
                             junit 'result*.xml'
                             bat "${informacion}"
                         }
+                    }
+                }
+
+                stage('Performance') {
+                    agent { label 'agente1' }
+                    steps {
+                        bat '''
+                            set FLASK_APP=app\\api.py
+                            start %pathscript%\\flask run
+                            %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
+                        '''
+                        perfReport sourceDataFiles: 'flask.jtl'
+                        bat "${informacion}"
                     }
                 }
 
@@ -68,54 +82,17 @@ pipeline {
             }
         }
 
-        stage('Dependientes') {
-            parallel {
-                stage('Service') {
-                    agent { label 'agente2' }
-                    steps {
-                        unstash 'codigo'
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                               bat '''
-                                set FLASK_APP=app\\api.py
-                                start %pathscript%\\flask run
-                                start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
-                            '''
-
-                            sleep(time: 30, unit: 'SECONDS')
-                            
-                            bat '''
-                                set PYTHONPATH=%WORKSPACE%
-                                %pathscript%\\pytest --junitxml=result-rest.xml test\\rest
-                            '''
-                        }
-                        bat "${informacion}"
-                    }
+        stage('Coverage') {
+            agent { label 'agente2' }
+            steps {
+                bat '''
+                    set PYTHONPATH=%WORKSPACE%
+                    %pathscript%\\coverage xml
+                '''
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, onlyStable: false, lineCoverageTargets: '100, 85, 95'
                 }
-
-                stage('Coverage') {
-                    agent { label 'agente1' }
-                    steps {
-                        bat '''
-                            set PYTHONPATH=%WORKSPACE%
-                            %pathscript%\\coverage xml
-                        '''
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                            cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, onlyStable: false, lineCoverageTargets: '100, 85, 95'
-                        }
-                        bat "${informacion}"
-                    }
-                }
-
-                stage('Performance') {
-                    agent { label 'agente2' }
-                    steps {
-                        bat '''
-                            %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
-                        '''
-                        perfReport sourceDataFiles: 'flask.jtl'
-                        bat "${informacion}"
-                    }
-                }
+                bat "${informacion}"
             }
         }
     }

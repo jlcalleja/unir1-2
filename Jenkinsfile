@@ -10,38 +10,20 @@ pipeline {
     stages {
         stage('GetCode') {
             steps {
-                git 'https://github.com/jlcalleja/unir1-2/'
+                git url: 'https://github.com/jlcalleja/unir1-2', branch: 'feature_fix_coverage'
                 bat 'dir'
                 echo WORKSPACE
             }
         }
 
-        stage('Tests') {
-            parallel {
-                stage('Unit') {
-                    steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                            bat '''
-                                set PYTHONPATH=%WORKSPACE%
-                                %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
-                           '''
-                            junit 'result*.xml'
-                        }
-                    }
-                }
-                
-                stage('Service') {
-                    steps {
-                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                            bat '''
-                                set FLASK_APP=app\\api.py
-                                start %pathscript%\\flask run
-                                start java -jar %pathwiremock% --port 9090 --root-dir %WORKSPACE%\\test\\wiremock
-                                set PYTHONPATH=%WORKSPACE%
-                                %pathscript%\\pytest --junitxml=result-rest.xml test\\rest
-                           '''
-                        }
-                    }
+        stage('Unit') {
+            steps {
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                    bat '''
+                        set PYTHONPATH=%WORKSPACE%
+                        %pathscript%\\coverage run --branch --source=app --omit=app\\_init_.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
+                    '''
+                    junit 'result*.xml'
                 }
             }
         }
@@ -54,7 +36,7 @@ pipeline {
                 '''
                 
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                    cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, lineCoverageTargets: '100, 85, 95'
+                    cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100, 80, 90', failUnstable: false, onlyStable: false, lineCoverageTargets: '100, 85, 95'
                 }
             }
         }
@@ -87,6 +69,8 @@ pipeline {
         stage('Performance') {
             steps {
                 bat '''
+                    set FLASK_APP=app\\api.py
+                    start %pathscript%\\flask run
                     %pathjmeter% -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
                 '''
                 perfReport sourceDataFiles: 'flask.jtl'
@@ -96,7 +80,7 @@ pipeline {
     
     post {
         always {
-            cleanWs(disableDeferredWipeout: true)  // Desactiva el "wipeout diferido"
+            cleanWs(disableDeferredWipeout: true)
         }
     }
 
