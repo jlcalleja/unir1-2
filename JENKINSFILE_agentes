@@ -1,5 +1,8 @@
 pipeline {
     agent none
+    options {
+        skipDefaultCheckout true //avoid auto checkout in slaves nodes
+    }
 
     environment {
         pathscript = "C:\\Users\\ADM-1\\AppData\\Local\\Programs\\Python\\Python313\\Scripts"
