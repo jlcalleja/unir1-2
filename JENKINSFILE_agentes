@@ -69,6 +69,7 @@ pipeline {
                 stage('Security-Test') {
                     agent { label 'agente3' }
                     steps {
+                        unstash 'codigo'
                         bat '''
                             %pathscript%\\bandit --exit-zero -r . -f custom -o bandit.out --msg-template "{abspath}:{line}: [{test_id}] {msg}"
                         '''
